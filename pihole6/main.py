@@ -6,6 +6,8 @@ from dateutil.relativedelta import relativedelta
 import dateutil.parser as date_parser
 from enum import Enum
 
+# The PiHole 6 developmment version of the API documentation can be found here:
+# https://ftl.pi-hole.net/development-v6/docs/#
 
 class QueryActionType(Enum):
     GRAVITY = 1
@@ -22,6 +24,8 @@ class AuthRequired(Exception):
 class QueryException(Exception):
     pass
 
+class GeneralException(Exception):
+    pass
 
 def requires_auth(api_func):
     """Decorator to check auth_data is present for given api method."""
@@ -33,55 +37,91 @@ def requires_auth(api_func):
 
     return wrapper
 
-
-def inApiLink(ip, endpoint):
-    return "http://"+ str(ip) +"/admin/scripts/pi-hole/php/"+ str(endpoint) +".php"
-
-
-class Auth(object):
-    def __init__(self, password):
-        # PiHole's web token is just a double sha256 hash of the utf8 encoded password
-        self.token = hashlib.sha256(hashlib.sha256(str(password).encode()).hexdigest().encode()).hexdigest()
-        self.auth_timestamp = time.time()
-
-
-class PiHole(object):
+class PiHole6(object):
 
     known_time_ranges = {
-        "today": (dt.datetime.combine(dt.datetime.utcnow().date(), dt.datetime.min.time()), dt.datetime.utcnow()),
-        "yesterday": (dt.datetime.combine(dt.datetime.utcnow().date()-dt.timedelta(days=1), dt.datetime.min.time()),
-                      dt.datetime.combine(dt.datetime.utcnow().date()-dt.timedelta(days=1), dt.datetime.max.time())),
-        "last_7_days": (dt.datetime.combine(dt.datetime.utcnow().date()-dt.timedelta(days=6), dt.datetime.min.time()),
-                        dt.datetime.utcnow()),
-        "last_30_days": (dt.datetime.combine(dt.datetime.utcnow().date()-dt.timedelta(days=29), dt.datetime.min.time()),
-                         dt.datetime.utcnow()),
-        "this_month": (dt.datetime.combine(dt.date(dt.datetime.utcnow().date().year,dt.datetime.utcnow().date().month,1),
+        "today": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date(), dt.datetime.min.time()), dt.datetime.now(dt.datetime.UTC)),
+        "yesterday": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=1), dt.datetime.min.time()),
+                      dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=1), dt.datetime.max.time())),
+        "last_7_days": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=6), dt.datetime.min.time()),
+                        dt.datetime.now(dt.datetime.UTC)),
+        "last_30_days": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=29), dt.datetime.min.time()),
+                         dt.datetime.now(dt.datetime.UTC)),
+        "this_month": (dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1),
                                            dt.datetime.min.time()),
-                       dt.datetime.utcnow()),
-        "last_month": [dt.datetime.combine(dt.date(dt.datetime.utcnow().date().year,dt.datetime.utcnow().date().month,1)-relativedelta(months=1),
+                       dt.datetime.now(dt.datetime.UTC)),
+        "last_month": [dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1)-relativedelta(months=1),
                                            dt.datetime.min.time()),
-                       dt.datetime.combine(dt.date(dt.datetime.utcnow().date().year,dt.datetime.utcnow().date().month,1)-dt.timedelta(days=1),
+                       dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1)-dt.timedelta(days=1),
                                            dt.datetime.max.time())],
-        "this_year": (dt.datetime.combine(dt.date(dt.datetime.utcnow().date().year,1,1), dt.datetime.min.time()),
-                      dt.datetime.utcnow()),
-        "all_time": (0, dt.datetime.utcnow())
+        "this_year": (dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,1,1), dt.datetime.min.time()),
+                      dt.datetime.now(dt.datetime.UTC)),
+        "all_time": (0, dt.datetime.now(dt.datetime.UTC))
     }
 
-    # Takes in an ip address of a pihole server
-    def __init__(self, ip_address):
+    def __init__(self, ip_address, scheme = "http", port = 80, password=''):
+        """
+        Purpose: Initialises the class
+        Takes in an ip address of a pihole server; using http over port 80 by default
+        """
+        self.scheme = scheme
         self.ip_address = ip_address
-        self.auth_data = None
-        self.refresh()
-        self.pw = None
+        self.port = port
+        self.session = None
+        self.api_url = self.scheme + "://" + self.ip_address + ":" + self.port + "/api/"
+        self.password = password
+        #self.refresh()
+    # end def
 
+    def auth(self):
+        """
+        Purpose: Uses supplied password to (re)authenticate on the server
+        """
+        try:
+            response = requests.post(self.api_url + 'auth', json={"password":self.password})
+        except:
+            raise GeneralException('Unknown error occurred!')
+        data=response.json()
+        data['status_code'] = response.status_code
+        if response.status_code == 200:
+            # We have a valid result and store the session
+            self.session = data['session']
+        else:
+            # other response codesa as per API:
+            # 400, 401, 429
+            self.session = None
+        return(data)
+    # end def
+
+    def api_call_get(self, endpoint, attempt=0):
+        """
+        Purpose: Queries server with a GET call
+        endpoint: path part after the /api part
+        """
+        if not self.session:
+            if not self.password:
+                # Cannot authenticate without password, obviously
+                raise AuthRequired('Authentication is required!')
+            # Authenticate with given password
+            self.auth(self.password)
+        try:
+            response = requests.get(self.api_url + endpoint, headers={"sid":self.session["session"]["sid"]})
+        except:
+            raise GeneralException('Unknown error occurred!')
+        data = response.json()
+        data['status_code'] = response.status_code
+        return(data)
+    # end def
+
+    # Refreshes statistics
     def refresh(self):
-        rawdata = requests.get("http://" + self.ip_address + "/admin/api.php?summary").json()
+        rawdata = requests.get(self.api_url + "stats/summary").json()
 
-        if self.auth_data:
-            topdevicedata = requests.get("http://" + self.ip_address + "/admin/api.php?getQuerySources=25&auth=" + self.auth_data.token).json()
+        if self.session:
+            topdevicedata = requests.get("http://" + self.ip_address + "/admin/api.php?getQuerySources=25&auth=" + self.session.token).json()
             self.top_devices = topdevicedata["top_sources"]
-            self.forward_destinations = requests.get("http://" + self.ip_address + "/admin/api.php?getForwardDestinations&auth=" + self.auth_data.token).json()
-            self.query_types = requests.get("http://" + self.ip_address + "/admin/api.php?getQueryTypes&auth=" + self.auth_data.token).json()["querytypes"]
+            self.forward_destinations = requests.get("http://" + self.ip_address + "/admin/api.php?getForwardDestinations&auth=" + self.session.token).json()
+            self.query_types = requests.get("http://" + self.ip_address + "/admin/api.php?getQueryTypes&auth=" + self.session.token).json()["querytypes"]
 
         # Data that is returned is now parsed into vars
         self.status = rawdata["status"]
@@ -99,7 +139,7 @@ class PiHole(object):
 
     @requires_auth
     def refreshTop(self, count):
-        rawdata = requests.get("http://" + self.ip_address + "/admin/api.php?topItems="+ str(count) +"&auth=" + self.auth_data.token).json()
+        rawdata = requests.get("http://" + self.ip_address + "/admin/api.php?topItems="+ str(count) +"&auth=" + self.session.token).json()
         self.top_queries = rawdata["top_queries"]
         self.top_ads = rawdata["top_ads"]
 
@@ -108,8 +148,8 @@ class PiHole(object):
         return {"domains":rawdata["domains_over_time"], "ads":rawdata["ads_over_time"]}
 
     def authenticate(self, password):
-        self.auth_data = Auth(password)
-        self.pw = password
+        self.session = Auth(password)
+        self.password = password
         # print(self.auth_data.token)
 
     @requires_auth
@@ -124,11 +164,11 @@ class PiHole(object):
         The return type can be either returned as is (default) or formatted (return_type=array_dict) in order to make
         using the data easier
         """
-        if self.auth_data == None:
+        if self.session == None:
             print("Unable to get queries. Please authenticate")
             exit(1)
 
-        url = "http://" + self.ip_address + "/admin/api_db.php?getAllQueries&auth=" + self.auth_data.token
+        url = "http://" + self.ip_address + "/admin/api_db.php?getAllQueries&auth=" + self.session.token
 
         if client and domain:
             print("Cannot search for both client AND domain")
@@ -184,27 +224,27 @@ class PiHole(object):
 
     @requires_auth
     def enable(self):
-        requests.get("http://" + self.ip_address + "/admin/api.php?enable&auth=" + self.auth_data.token)
+        requests.get("http://" + self.ip_address + "/admin/api.php?enable&auth=" + self.session.token)
 
     @requires_auth
     def disable(self, seconds):
-        requests.get("http://" + self.ip_address + "/admin/api.php?disable="+ str(seconds) +"&auth=" + self.auth_data.token)
+        requests.get("http://" + self.ip_address + "/admin/api.php?disable="+ str(seconds) +"&auth=" + self.session.token)
 
     def getVersion(self):
         return requests.get("http://" + self.ip_address + "/admin/api.php?versions").json()
 
     @requires_auth
     def getDBfilesize(self):
-        return float(requests.get("http://" + self.ip_address + "/admin/api_db.php?getDBfilesize&auth=" + self.auth_data.token).json()["filesize"])
+        return float(requests.get("http://" + self.ip_address + "/admin/api_db.php?getDBfilesize&auth=" + self.session.token).json()["filesize"])
 
     @requires_auth
     def getList(self, list):
         return requests.get(
-            "http://" + str(self.ip_address) + "/admin/api.php?list=" + list + "&auth=" + self.auth_data.token).json()
+            "http://" + str(self.ip_address) + "/admin/api.php?list=" + list + "&auth=" + self.session.token).json()
 
     @requires_auth
     def add(self, list, domain, comment=""):
-        url = "/admin/api.php?list=" + list + "&add=" + domain + "&auth=" + self.auth_data.token
+        url = "/admin/api.php?list=" + list + "&add=" + domain + "&auth=" + self.session.token
         comment = {'comment': comment}
         response = requests.post(
             "http://" + str(self.ip_address) + url, data=comment)
@@ -214,4 +254,4 @@ class PiHole(object):
     def sub(self, list, domain):
         with requests.session() as s:
             s.get("http://"+ str(self.ip_address) +"/admin/scripts/pi-hole/php/sub.php")
-            requests.post("http://"+ str(self.ip_address) +"/admin/scripts/pi-hole/php/sub.php", data={"list":list, "domain":domain, "pw":self.pw}).text
+            requests.post("http://"+ str(self.ip_address) +"/admin/scripts/pi-hole/php/sub.php", data={"list":list, "domain":domain, "pw":self.password}).text
