@@ -1,34 +1,34 @@
 [![PyPI version](https://badge.fury.io/py/PiHole-api.svg)](https://badge.fury.io/py/PiHole-api)
-# PiHole-api
+# PiHole6-api
 A python3 wrapper for the pihole api that aims to eventually be a full replacement for the [AdminLTE](https://github.com/pi-hole/AdminLTE) web panel
 
 ## Installing
 To install the package from pip, first run:
 ```bash
-python3 -m pip install --no-cache-dir PiHole-api
+python3 -m pip install --no-cache-dir PiHole6-api
 ```
 
-Due to naming issues, inside python, the package is named `pihole` **not** `PiHole-api`. Keeping this in mind, let's import it.
+Due to naming issues, inside python, the package is named `pihole6` **not** `PiHole6-api`. Keeping this in mind, let's import it.
 ```python3
-import pihole as ph
+import pihole6 as ph
 ```
 
 ## Usage
-This library has many features that can be broken down in to two simple sections. Stats, and Controls. In order to use any of the functions, you must first import the library, then create a PiHole object.
+This library has many features that can be broken down in to two simple sections. Stats, and Controls. In order to use any of the functions, you must first import the library, then create a PiHole6 object.
 
 ```python3
 # Import the library
-import pihole as ph
+import pihole6 as ph
 
 # Create an object
-pihole = ph.PiHole("<ip address of server>")
+pihole6 = ph.PiHole6("<ip address of server>")
 ```
-Throuought this README, I will assume that you are using the name `pihole` for your object
+Throuought this README, I will assume that you are using the name `pihole6` for your object
 
 ### Stats
 Checking the current version data can be done using:
 ```python3
-pihole.getVersion()
+pihole6.getVersion()
 ```
 It will return a json object that will look like:
 ```json
@@ -37,39 +37,39 @@ It will return a json object that will look like:
 
 To refresh all stat-related data:
 ```python3
-pihole.refresh()
+pihole6.refresh()
 ```
 
 To access the fetched data, use these self-descriptive variables:
 ```python3
-pihole.status
-pihole.domain_count
-pihole.queries
-pihole.blocked
-pihole.ads_percentage
-pihole.unique_domains
-pihole.forwarded
-pihole.cached
-pihole.total_clients
-pihole.unique_clients
-pihole.total_queries
+pihole6.status
+pihole6.domain_count
+pihole6.queries
+pihole6.blocked
+pihole6.ads_percentage
+pihole6.unique_domains
+pihole6.forwarded
+pihole6.cached
+pihole6.total_clients
+pihole6.unique_clients
+pihole6.total_queries
 ```
 
 If you have already [authenticated](#Controls), the `refresh()` function will also return data about the top devices, forward destinations, and query types. These can be accessed using:
 ```python3
 # Top devices
-pihole.top_devices
+pihole6.top_devices
 
 # Forward destinations
-pihole.forward_destinations
+pihole6.forward_destinations
 
 # Query types
-pihole.query_types
+pihole6.query_types
 ```
 
 To get data about the last gravity update, use:
 ```python3
-pihole.gravity_last_updated
+pihole6.gravity_last_updated
 ```
 
 It will return a json object that looks like:
@@ -79,7 +79,7 @@ It will return a json object that looks like:
 
 You can also get the graph data using:
 ```python3
-pihole.getGraphData()
+pihole6.getGraphData()
 ```
 
 The data it returns looks like this:
@@ -89,44 +89,44 @@ The data it returns looks like this:
 
 You can grab just the domain data by using:
 ```python3
-pihole.getGraphData()["domains"]
+pihole6.getGraphData()["domains"]
 ```
 
 And just the ads data by using:
 ```python3
-pihole.getGraphData()["ads"]
+pihole6.getGraphData()["ads"]
 ```
 
 To refresh the top data, first [authenticate](#Controls), then use:
 ```python3
-pihole.refreshTop(10)
+pihole6.refreshTop(10)
 ```
 Replace the `10` with how many results you want back.
 
 The top data can then be fetched using:
 ```python3
-pihole.top_queries # returns all top queries
+pihole6.top_queries # returns all top queries
 
 # Or
 
-pihole.top_ads # returns all top ads
+pihole6.top_ads # returns all top ads
 ```
 
 To view all queries, use:
 ```python3
-pihole.getAllQueries()
+pihole6.getAllQueries()
 ```
 
 This returns a list of lists containing data about all queries. Fore more info, see the getAllQueries section of: https://discourse.pi-hole.net/t/pi-hole-api/1863
 
 To get the filesize of the database file, use:
 ```python3
-pihole.getDBfilesize()
+pihole6.getDBfilesize()
 ```
 
 To get the contents of your white/black list, use:
 ```python3
-pihole.getList("black")
+pihole6.getList("black")
 ```
 "black" can be replaced with "white" to get your whitelist
 
@@ -135,23 +135,23 @@ pihole.getList("black")
 ### <div id="Controls"> Controls </div>
 First, you must log in. Use the password you set or where given by the installer (the same one you use on the web control panel)
 ```python3
-pihole.authenticate(password)
+pihole6.authenticate(password)
 ```
 
 To enable pihole, authenticate, then use:
 ```python3
-pihole.enable()
+pihole6.enable()
 ```
 
 To disable pihole, authenticate, then use:
 ```python3
-pihole.disable(10)
+pihole6.disable(10)
 ```
 replace `10` with the number of **seconds** that you want to disable pihole for.
 
 Add a domain to one of your lists:
 ```python3
-pihole.add("black", "google.com")
+pihole6.add("black", "google.com")
 ```
 The example blacklists google.com. Replacing black with one of: **white**, **black**, **wild**, **regex**, or **audit** will change the list to be added to. To remove a domain form a list, replace `add()` with `sub()`
 
