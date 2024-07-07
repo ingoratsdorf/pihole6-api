@@ -110,6 +110,12 @@ class PiHole6(object):
             raise GeneralException('Unknown error occurred!')
         data = response.json()
         data['status_code'] = response.status_code
+        if (response.status_code != 200) and (attempt != 0):
+            # Although we had a valid session, the session may have expired and thus we need to redo the call
+            # 2nd call with auth again at the start
+            # if the password is not set, it will raise an exception, otherwise auth and create a new session
+            self.session = None
+            data = self.api_call_get(self, endpoint, 1)
         return(data)
     # end def
 
