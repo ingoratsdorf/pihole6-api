@@ -40,23 +40,23 @@ def requires_auth(api_func):
 class PiHole6(object):
 
     known_time_ranges = {
-        "today": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date(), dt.datetime.min.time()), dt.datetime.now(dt.datetime.UTC)),
-        "yesterday": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=1), dt.datetime.min.time()),
-                      dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=1), dt.datetime.max.time())),
-        "last_7_days": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=6), dt.datetime.min.time()),
-                        dt.datetime.now(dt.datetime.UTC)),
-        "last_30_days": (dt.datetime.combine(dt.datetime.now(dt.datetime.UTC).date()-dt.timedelta(days=29), dt.datetime.min.time()),
-                         dt.datetime.now(dt.datetime.UTC)),
-        "this_month": (dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1),
+        "today": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date(), dt.datetime.min.time()), dt.datetime.now(dt.timezone.utc)),
+        "yesterday": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=1), dt.datetime.min.time()),
+                      dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=1), dt.datetime.max.time())),
+        "last_7_days": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=6), dt.datetime.min.time()),
+                        dt.datetime.now(dt.timezone.utc)),
+        "last_30_days": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=29), dt.datetime.min.time()),
+                         dt.datetime.now(dt.timezone.utc)),
+        "this_month": (dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1),
                                            dt.datetime.min.time()),
-                       dt.datetime.now(dt.datetime.UTC)),
-        "last_month": [dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1)-relativedelta(months=1),
+                       dt.datetime.now(dt.timezone.utc)),
+        "last_month": [dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1)-relativedelta(months=1),
                                            dt.datetime.min.time()),
-                       dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,dt.datetime.now(dt.datetime.UTC).date().month,1)-dt.timedelta(days=1),
+                       dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1)-dt.timedelta(days=1),
                                            dt.datetime.max.time())],
-        "this_year": (dt.datetime.combine(dt.date(dt.datetime.now(dt.datetime.UTC).date().year,1,1), dt.datetime.min.time()),
-                      dt.datetime.now(dt.datetime.UTC)),
-        "all_time": (0, dt.datetime.now(dt.datetime.UTC))
+        "this_year": (dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,1,1), dt.datetime.min.time()),
+                      dt.datetime.now(dt.timezone.utc)),
+        "all_time": (0, dt.datetime.now(dt.timezone.utc))
     }
 
     def __init__(self, ip_address, scheme = "http", port = 80, password=''):
@@ -68,7 +68,7 @@ class PiHole6(object):
         self.ip_address = ip_address
         self.port = port
         self.session = None
-        self.api_url = self.scheme + "://" + self.ip_address + ":" + self.port + "/api/"
+        self.api_url = self.scheme + "://" + self.ip_address + ":" + str(self.port) + "/api/"
         self.password = password
         #self.refresh()
     # end def
