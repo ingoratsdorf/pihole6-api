@@ -1,6 +1,7 @@
 import requests
 import time
 import hashlib
+import json
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 import dateutil.parser as date_parser
@@ -78,6 +79,7 @@ class PiHole6(object):
         Purpose: Uses supplied password to (re)authenticate on the server
         """
         try:
+            # Cannot use the below API call for this as this would create a rircular loop if not authenticated
             response = requests.post(self.api_url + 'auth', json={"password":self.password})
         except:
             raise GeneralException('Unknown error occurred!')
@@ -93,44 +95,80 @@ class PiHole6(object):
         return(data)
     # end def
 
-    def api_call_get(self, endpoint, attempt=0):
+    def api_call(self, method : str, endpoint: str, json : object = None, attempt: int = 0):
         """
         Purpose: Queries server with a GET call
-        endpoint: path part after the /api part
+
+        :param method: request method to call, allowed methods: GET, POST, PATCH, PUT, DELETE
+        :param endpoint: path part after the /api part 
+        :param params: parameters in json format that the API call expects
         """
+
         if not self.session:
             if not self.password:
                 # Cannot authenticate without password, obviously
-                raise AuthRequired('Authentication is required!')
+                # Maybe some servers don't have one. Should we fail here or not?
+                raise AuthRequired('Authentication is required but no password has been supplied!')
             # Authenticate with given password
-            self.auth(self.password)
+            self.auth()
         try:
-            response = requests.get(self.api_url + endpoint, headers={"sid":self.session["session"]["sid"]})
+            response = requests.request(method, self.api_url + endpoint, json=json, headers={"sid":self.session["sid"]})
         except:
             raise GeneralException('Unknown error occurred!')
         data = response.json()
         data['status_code'] = response.status_code
-        if (response.status_code != 200) and (attempt != 0):
+        if (response.status_code == 401) and (attempt != 0):
             # Although we had a valid session, the session may have expired and thus we need to redo the call
             # 2nd call with auth again at the start
             # if the password is not set, it will raise an exception, otherwise auth and create a new session
             self.session = None
-            data = self.api_call_get(self, endpoint, 1)
+            data = self.api_call(self, method, endpoint, json, attempt=1)
         return(data)
     # end def
 
+    # DNS control
+    # Methods used to control the behavior of your Pi-hole
+
+    def blocking_get(self):
+        """
+        Purpose: Get current blocking status
+        The property timer may contain additional details concerning a temporary en-/disabling. It is null when no timer is active (the current status is permanent).
+        """
+        return (self.api_call(method='GET', endpoint='dns/blocking')['blocking'] == 'enabled')
+    # end def
+
+    def blocking_set(self, enabled:bool, timer:int):
+        """
+        Purpose: Change current blocking status
+        Change the current blocking mode by setting blocking to the desired value. The optional timer object may used to set a timer. Once this timer elapsed,
+        the opposite blocking mode is automatically set. For instance, you can request {blocking: false, timer: 60} to disable Pi-hole for one minute.
+        Blocking will be automatically resumed afterwards.
+
+        :param enabled: Blocking status
+        :param timer: Remaining seconds until blocking mode is automatically changed
+        """
+        return (self.api_call(method='POST', endpoint='dns/blocking', json={"blocking": enabled, "timer": timer}))
+    # end def
+    
+    #############################################################################
+    # Old v,5 api compatibility
+    #
+    # DON'T USE IT IF YOU DON'T HAVE TO
+    # It is doing a lot of api calls that take a lot of time and resources
+    #############################################################################
+
     # Refreshes statistics
     def refresh(self):
-        rawdata = requests.get(self.api_url + "stats/summary").json()
+        data = self.api_call(method='GET', endpoint='stats/summary')
 
         if self.session:
-            topdevicedata = requests.get("http://" + self.ip_address + "/admin/api.php?getQuerySources=25&auth=" + self.session.token).json()
+            topdevicedata = self.api_call('GET', 'stats/top_clients', json='{ "blocked": False, "count": 25 }')
             self.top_devices = topdevicedata["top_sources"]
             self.forward_destinations = requests.get("http://" + self.ip_address + "/admin/api.php?getForwardDestinations&auth=" + self.session.token).json()
             self.query_types = requests.get("http://" + self.ip_address + "/admin/api.php?getQueryTypes&auth=" + self.session.token).json()["querytypes"]
 
         # Data that is returned is now parsed into vars
-        self.status = rawdata["status"]
+        self.status = self.api_call('GET', 'dns/blocking')['blocking'] # returns True or False
         self.domain_count = rawdata["domains_being_blocked"]
         self.queries = rawdata["dns_queries_today"]
         self.blocked = rawdata["ads_blocked_today"]
