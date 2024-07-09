@@ -1,6 +1,6 @@
 [![PyPI version](https://badge.fury.io/py/PiHole-api.svg)](https://badge.fury.io/py/PiHole-api)
 # PiHole6-api
-A python3 wrapper for the pihole api that aims to eventually be a full replacement for the [AdminLTE](https://github.com/pi-hole/AdminLTE) web panel
+A python3 wrapper for the pihole6 api
 
 ## Installing
 To install the package from pip, first run:
