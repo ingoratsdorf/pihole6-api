@@ -1,7 +1,4 @@
 import requests
-import time
-import hashlib
-import json
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 import dateutil.parser as date_parser

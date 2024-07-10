@@ -4,8 +4,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='PiHole6-api',
-    version='0.1',
+    name='pihole6',
+    version='0.0.1',
     description='A python3 wrapper for the pihole6 api',
     url='https://github.com/ingoratsdorf/pihole6-api',
     author='Ingo Ratsdorf',
