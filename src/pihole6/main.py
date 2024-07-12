@@ -73,7 +73,7 @@ class PiHole6(object):
         #self.refresh()
     # end def
 
-    def auth(self):
+    def _auth(self):
         """
         Purpose: Uses supplied password to (re)authenticate on the server
         """
@@ -109,7 +109,7 @@ class PiHole6(object):
                 # Maybe some servers don't have one. Should we fail here or not?
                 raise AuthRequired('Authentication is required but no password has been supplied!')
             # Authenticate with given password
-            self.auth()
+            self._auth()
         try:
             response = requests.request(method, self.api_url + endpoint, json=json, headers={"sid":self.session["sid"]})
         except:
@@ -236,6 +236,35 @@ class PiHole6(object):
         """
         return (self.api_call(method='GET', endpoint='auth/totp'))
     # end def
+
+    # Metrics
+    # Methods used to get usage data from your Pi-hole
+
+    def metricsGetHistory(self):
+        """
+        Purpose: Get activity graph data
+        Request data needed to generate the "Query over last 24 hours" graph.
+        The sum of the values in the individual data arrays may be smaller than the total number of queries for the corresponding timestamp.
+        The remaining queries are queries that do not fit into the shown categories (e.g. database busy, unknown status queries, etc.).
+        """
+        return (self.api_call(method='GET', endpoint='history'))
+    # end def
+
+    def metricsGetClientHistory(self, number: int = 25):
+        """
+        Purpose: Get per-client activity graph data
+        Request data needed to generate the "Client activity over last 24 hours" graph. This endpoint returns the top N clients,
+        sorted by total number of queries within 24 hours. If N is set to 0, all clients will be returned.
+        The client name is only available if the client's IP address can be resolved to a hostname.
+        The last client returned is a special client that contains the total number of queries that were not sent by any of the other shown clients ,
+        i.e. queries that were sent by clients that are not in the top N. This client is always present,
+        even if it has 0 queries and can be identified by the special name "other clients" (mind the space in the hostname) and the IP address "0.0.0.0".
+        Note that, due to privacy settings, the returned data may also be empty.
+        """
+        return (self.api_call(method='GET', endpoint='history/clients?n='+str(number)))
+    # end def
+
+
 
     #############################################################################
     # Old v,5 api compatibility
