@@ -59,7 +59,7 @@ class PiHole6(object):
         "all_time": (0, dt.datetime.now(dt.timezone.utc))
     }
 
-    def __init__(self, ip_address, scheme = "http", port = 80, password=''):
+    def __init__(self, ip_address, scheme:str = "http", port:int = 80, password: str = ''):
         """
         Purpose: Initialises the class
         Takes in an ip address of a pihole server; using http over port 80 by default
@@ -94,7 +94,7 @@ class PiHole6(object):
         return(data)
     # end def
 
-    def api_call(self, method : str, endpoint: str, json : object = None, attempt: int = 0):
+    def api_call(self, method: str, endpoint: str, json: object = None, attempt: int = 0):
         """
         Purpose: Queries server with a GET call
 
@@ -133,7 +133,7 @@ class PiHole6(object):
     # DNS control
     # Methods used to control the behavior of your Pi-hole
 
-    def blocking_get(self):
+    def blockingGet(self):
         """
         Purpose: Get current blocking status
         The property timer may contain additional details concerning a temporary en-/disabling. It is null when no timer is active (the current status is permanent).
@@ -142,7 +142,7 @@ class PiHole6(object):
         return (self.api_call(method='GET', endpoint='dns/blocking'))
     # end def
 
-    def blocking_set(self, enabled:bool, timer:int):
+    def blockingSet(self, enabled: bool, timer: int):
         """
         Purpose: Change current blocking status
         Change the current blocking mode by setting blocking to the desired value. The optional timer object may used to set a timer. Once this timer elapsed,
@@ -158,7 +158,7 @@ class PiHole6(object):
     # Authentication
     # Methods used to get usage data from your Pi-hole
 
-    def auth_get(self):
+    def authCheck(self):
         """
         Purpose: Check if authentication is required
         The API may chose to reply with a valid session if no authentication is needed for this server.
@@ -166,7 +166,7 @@ class PiHole6(object):
         return (self.api_call(method='GET', endpoint='auth'))
     # end def
 
-    def auth_set(self, password):
+    def authSetPassword(self, password: str):
         """
         Purpose: Submit password for login
         Authenticate using a password. The password isn't stored in the session nor used to create the session token.
@@ -186,14 +186,56 @@ class PiHole6(object):
         return(self.session)
     # end def
 
-    def auth_delete(self):
+    def authLogout(self):
         """
-        Purpose: Check if authentication is required
-        The API may chose to reply with a valid session if no authentication is needed for this server.
+        Purpose: Delete session
+        This endpoint can be used to delete the current session. It will invalidate the session token and the CSRF token.
+        The session can be extended before its expiration by performing any authenticated action. By default, the session lasts for 5 minutes.
+        It can be invalidated by either logging out or deleting the session. Additionally,
+        the session becomes invalid when the password is altered or a new application password is created.
+        You can also delete a session by its ID using the DELETE /auth/session/{id} endpoint.
+        Note that you cannot delete the current session if you have not authenticated (e.g., no password has been set on your Pi-hole).
         """
         return (self.api_call(method='DELETE', endpoint='auth'))
     # end def
 
+    def authCreateApp(self):
+        """
+        Purpose: Create new application password
+        Create a new application password. The generated password is shown only once and cannot be retrieved later - make sure to store it in a safe place.
+        The application password can be used to authenticate against the API instead of the regular password.
+        It does not require 2FA verification. Generating a new application password will invalidate all currently active sessions.
+        Note that this endpoint only generates an application password accompanied by its hash. To make this new password effective,
+        the returned hash has to be set as webserver.api.app_password in the Pi-hole configuration in a follow-up step.
+        This can be done in various ways, e.g. via the API (PATCH /api/config/webserver/api/app_pwhash),
+        the graphical web interface (Settings -> All Settings) or by editing the configuration file directly.
+        """
+        return (self.api_call(method='GET', endpoint='auth/app'))
+    # end def
+
+    def authSessionList(self):
+        """
+        Purpose: List of all current sessions
+        List of all current sessions including their validity and further information about the client such as the IP address and user agent.
+        """
+        return (self.api_call(method='GET', endpoint='auth/sessions'))
+    # end def
+
+    def authSessionDelete(self, id: int = 0):
+        """
+        Purpose: Delete session by ID
+        Using this endpoint, a session can be deleted by its ID.
+        """
+        return (self.api_call(method='DELETE', endpoint='auth/session/'+str(id)))
+    # end def
+
+    def authNewTOTP(self):
+        """
+        Purpose: Suggest new TOTP credentials
+        Suggest new TOTP credentials for two-factor authentication (2FA)
+        """
+        return (self.api_call(method='GET', endpoint='auth/totp'))
+    # end def
 
     #############################################################################
     # Old v,5 api compatibility
