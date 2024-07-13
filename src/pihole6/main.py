@@ -287,14 +287,19 @@ class PiHole6(object):
         i.e. queries that were sent by clients that are not in the top N. This client is always present,
         even if it has 0 queries and can be identified by the special name "other clients" (mind the space in the hostname) and the IP address "0.0.0.0".
         Note that, due to privacy settings, the returned data may also be empty.
+
+        :param number: Maximum number of clients to return, setting this to 0 will return all clients
         """
-        return (self.api_call(method='GET', endpoint='history/clients?n='+str(number)))
+        return (self.api_call(method='GET', endpoint='history/clients?N='+str(number)))
     # end def
 
     def metricsGetDatabaseHistory(self, start = None, until: datetime = None):
         """
         Purpose: Get activity graph data (long-term data)
         Request long-term data needed to generate the activity graph
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
         """
         result = self._parse_datetime_range(start, until)
         return (self.api_call(method='GET', endpoint='history/database?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())))
@@ -304,6 +309,9 @@ class PiHole6(object):
         """
         Purpose: Get per-client activity graph data (long-term data)
         Request long-term data needed to generate the client activity graph
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
         """
         result = self._parse_datetime_range(start, until)
         return (self.api_call(method='GET', endpoint='history/database/clients?from=' + str(result[0].timestamp())+'&until=' + str(result[1].timestamp())))
@@ -336,6 +344,9 @@ class PiHole6(object):
         Each result of this API callback contains a cursor pointing the beginning of the next n queries chunk.
         This provides a very fast and lightweight server-side pagination implementation.
         If wildcards are supported for a parameter, you may specify * at any position in the parameter to match any number of characters.
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
         """
         result = self._parse_datetime_range(start, until)
         queryarg = '?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())
@@ -363,6 +374,158 @@ class PiHole6(object):
         return (self.api_call(method='GET', endpoint='queries' + queryarg))
     # end def
 
+    def metricsGetQuerySuggestions(self):
+        """
+        Purpose: Get query filter suggestions
+        This endpoint provides suggestions for filters suitable to be used with /queries
+        """
+        return (self.api_call(method='GET', endpoint='queries/suggestions'))
+    # end def
+
+    def metricsGetDatabaseQueryTypes(self, start = None, until: datetime = None):
+        """
+        Purpose: Get query types (long-term database)
+        Request query types
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
+        """
+        result = self._parse_datetime_range(start, until)
+        return (self.api_call(method='GET', endpoint='stats/database/query_types?from=' + str(result[0].timestamp())+'&until=' + str(result[1].timestamp())))
+    # end def
+
+    def metricsGetDatabaseSummary(self, start = None, until: datetime = None):
+        """
+        Purpose: Get database content details
+        Request various database content details
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
+        """
+        result = self._parse_datetime_range(start, until)
+        return (self.api_call(method='GET', endpoint='stats/database/summary?from=' + str(result[0].timestamp())+'&until=' + str(result[1].timestamp())))
+    # end def
+
+    def metricsGetDatabaseTopClients(self, start = None, until: datetime = None, blocked: bool = False, count: int = 25):
+        """
+        Purpose: Get top clients (long-term database)
+        Request top clients
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
+        :param blocked: Return information about permitted or blocked queries
+        :param count: Number of requested items
+        """
+        result = self._parse_datetime_range(start, until)
+        queryarg = '?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())
+        if (blocked):
+            queryarg += '&blocked=true'
+        else:
+            queryarg += '&blocked=false'
+        queryarg += '&count=' + str(count)
+        return (self.api_call(method='GET', endpoint='stats/database/top_clients?' + queryarg))
+    # end def
+
+    def metricsGetDatabaseTopDomains(self, start = None, until: datetime = None, blocked: bool = False, count: int = 25):
+        """
+        Purpose: Get top domains (long-term database)
+        Request top domains
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
+        :param blocked: Return information about permitted or blocked queries
+        :param count: Number of requested items
+        """
+        result = self._parse_datetime_range(start, until)
+        queryarg = '?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())
+        if (blocked):
+            queryarg += '&blocked=true'
+        else:
+            queryarg += '&blocked=false'
+        queryarg += '&count=' + str(count)
+        return (self.api_call(method='GET', endpoint='stats/database/top_domains' + queryarg))
+    # end def
+
+    def metricsGetDatabaseUpstreams(self, start = None, until: datetime = None):
+        """
+        Purpose: Get metrics about Pi-hole's upstream destinations (long-term database)
+        Request upstream metrics (long-term database)
+
+        :param start: datetime object with starting time or human readable interval string
+        :param until: datetime object for end time, None is equal to now
+        """
+        result = self._parse_datetime_range(start, until)
+        return (self.api_call(method='GET', endpoint='stats/database/upstreams?from=' + str(result[0].timestamp())+'&until=' + str(result[1].timestamp())))
+    # end def
+
+    def metricsGetQueryTypes(self):
+        """
+        Purpose: Get query types
+        Request query types
+        """
+        return (self.api_call(method='GET', endpoint='stats/query_types'))
+    # end def
+
+    def metricsGetRecentlyBlocked(self, number: int = 25):
+        """
+        Purpose: Get most recently blocked domain
+        Request most recently blocked domain
+
+        :param number: Number of requested blocked domains
+        """
+        return (self.api_call(method='GET', endpoint='stats/recent_blocked?count='+str(number)))
+    # end def
+
+    def metricsSummary(self):
+        """
+        Purpose: Get overview of Pi-hole activity
+        Request various query, system, and FTL properties
+        """
+        return (self.api_call(method='GET', endpoint='stats/summary'))
+    # end def
+
+    def metricsGetTopClients(self, blocked: bool = False, count: int = 25):
+        """
+        Purpose: Get top clients
+        Request top clients
+
+        :param blocked: Return information about permitted or blocked queries
+        :param count: Number of requested items
+        """
+        if (blocked):
+            queryarg = '?blocked=true'
+        else:
+            queryarg = '?blocked=false'
+        queryarg += '&count=' + str(count)
+        return (self.api_call(method='GET', endpoint='stats/top_clients' + queryarg))
+    # end def
+
+    def metricsGetTopDomains(self, blocked: bool = False, count: int = 25):
+        """
+        Purpose: Get top domains
+        Request top domains
+
+        :param blocked: Return information about permitted or blocked queries
+        :param count: Number of requested items
+        """
+        if (blocked):
+            queryarg = '?blocked=true'
+        else:
+            queryarg = '?blocked=false'
+        queryarg += '&count=' + str(count)
+        return (self.api_call(method='GET', endpoint='stats/top_domains' + queryarg))
+    # end def
+
+    def metricsGetUpstreams(self):
+        """
+        Purpose: Get metrics about Pi-hole's upstream destinations
+        Request upstream metrics
+        """
+        return (self.api_call(method='GET', endpoint='stats/upstreams'))
+    # end def
+
+
+
 
 
 
@@ -375,16 +538,13 @@ class PiHole6(object):
 
     # Refreshes statistics
     def refresh(self):
-        data = self.api_call(method='GET', endpoint='stats/summary')
-
         if self.session:
-            topdevicedata = self.api_call('GET', 'stats/top_clients', json='{ "blocked": False, "count": 25 }')
-            self.top_devices = topdevicedata["top_sources"]
-            self.forward_destinations = requests.get("http://" + self.ip_address + "/admin/api.php?getForwardDestinations&auth=" + self.session.token).json()
-            self.query_types = requests.get("http://" + self.ip_address + "/admin/api.php?getQueryTypes&auth=" + self.session.token).json()["querytypes"]
+            self.top_devices = self.metricsGetTopClients(25)
+            self.forward_destinations = self.metricsGetUpstreams()
+            self.query_types = self.metricsGetQueryTypes()['types']
 
         # Data that is returned is now parsed into vars
-        self.status = self.api_call('GET', 'dns/blocking')['blocking'] # returns True or False
+        self.status = self.blockingGet()
         self.domain_count = rawdata["domains_being_blocked"]
         self.queries = rawdata["dns_queries_today"]
         self.blocked = rawdata["ads_blocked_today"]
