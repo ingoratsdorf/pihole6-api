@@ -1,5 +1,5 @@
 import requests
-import datetime as dt
+from datetime import date, datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
 import dateutil.parser as date_parser
 from enum import Enum
@@ -39,25 +39,52 @@ class PiHole6(object):
 
     # Helper functions
 
-    known_time_ranges = {
-        "today": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date(), dt.datetime.min.time()), dt.datetime.now(dt.timezone.utc)),
-        "yesterday": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=1), dt.datetime.min.time()),
-                      dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=1), dt.datetime.max.time())),
-        "last_7_days": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=6), dt.datetime.min.time()),
-                        dt.datetime.now(dt.timezone.utc)),
-        "last_30_days": (dt.datetime.combine(dt.datetime.now(dt.timezone.utc).date()-dt.timedelta(days=29), dt.datetime.min.time()),
-                         dt.datetime.now(dt.timezone.utc)),
-        "this_month": (dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1),
-                                           dt.datetime.min.time()),
-                       dt.datetime.now(dt.timezone.utc)),
-        "last_month": [dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1)-relativedelta(months=1),
-                                           dt.datetime.min.time()),
-                       dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,dt.datetime.now(dt.timezone.utc).date().month,1)-dt.timedelta(days=1),
-                                           dt.datetime.max.time())],
-        "this_year": (dt.datetime.combine(dt.date(dt.datetime.now(dt.timezone.utc).date().year,1,1), dt.datetime.min.time()),
-                      dt.datetime.now(dt.timezone.utc)),
-        "all_time": (0, dt.datetime.now(dt.timezone.utc))
-    }
+    def _parse_datetime_range(self, start, until):
+        """
+        Purpose: Parses human readable datetime range or missing datetime parameters
+        param: start: can be None or a datetime object or a string in one of the below formats
+        param: until: Can be None or a datetime object
+        """
+        known_time_ranges = {
+            "today":        (datetime.combine(datetime.now(timezone.utc).date(), datetime.min.time()), datetime.now(timezone.utc)),
+            "yesterday":    (datetime.combine(datetime.now(timezone.utc).date()-timedelta(days=1), datetime.min.time()),
+                            datetime.combine(datetime.now(timezone.utc).date()-timedelta(days=1), datetime.max.time())),
+            "last_7_days":  (datetime.combine(datetime.now(timezone.utc).date()-timedelta(days=6), datetime.min.time()),
+                            datetime.now(timezone.utc)),
+            "last_30_days": (datetime.combine(datetime.now(timezone.utc).date()-timedelta(days=29), datetime.min.time()),
+                            datetime.now(timezone.utc)),
+            "this_month":   (datetime.combine(date(datetime.now(timezone.utc).date().year,datetime.now(timezone.utc).date().month,1),
+                                datetime.min.time()),
+                            datetime.now(timezone.utc)),
+            "last_month":   [datetime.combine(date(datetime.now(timezone.utc).date().year,datetime.now(timezone.utc).date().month,1)-relativedelta(months=1),
+                                            datetime.min.time()),
+                            datetime.combine(date(datetime.now(timezone.utc).date().year,datetime.now(timezone.utc).date().month,1)-timedelta(days=1),
+                                            datetime.max.time())],
+            "this_year":    (datetime.combine(date(datetime.now(timezone.utc).date().year,1,1), datetime.min.time()),
+                            datetime.now(timezone.utc)),
+            "all_time": (0, datetime.now(timezone.utc))
+        }
+        # let's see if we have sort of human readable time range in from specified (see known time ranges above)
+        if (type(start)==str):
+            if (start in known_time_ranges):
+                range = known_time_ranges[start]
+                start = range[0]
+                until = range[1]
+            else:
+                # So we do have a string but obviously not in the format we support, typo or some string format datetime?
+                # For now we use the the last 7 days
+                start = datetime.combine(datetime.now(timezone.utc).date()-timedelta(days=6), datetime.min.time())
+                until = datetime.now(timezone.utc)
+        else:
+            #We don't have a human readable string format
+            if not until:
+                # Use now as end time
+                until = datetime.now(timezone.utc)
+            if not start:
+                # use 7 days rior to specified until date (including time)
+                start = until - timedelta(days=7)
+        return start, until
+    # end def
 
     def __init__(self, ip_address, scheme:str = "http", port:int = 80, password: str = ''):
         """
@@ -264,6 +291,79 @@ class PiHole6(object):
         return (self.api_call(method='GET', endpoint='history/clients?n='+str(number)))
     # end def
 
+    def metricsGetDatabaseHistory(self, start = None, until: datetime = None):
+        """
+        Purpose: Get activity graph data (long-term data)
+        Request long-term data needed to generate the activity graph
+        """
+        result = self._parse_datetime_range(start, until)
+        return (self.api_call(method='GET', endpoint='history/database?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())))
+    # end def
+
+    def metricsGetDatabaseClientHistory(self, start = None, until: datetime = None):
+        """
+        Purpose: Get per-client activity graph data (long-term data)
+        Request long-term data needed to generate the client activity graph
+        """
+        result = self._parse_datetime_range(start, until)
+        return (self.api_call(method='GET', endpoint='history/database/clients?from=' + str(result[0].timestamp())+'&until=' + str(result[1].timestamp())))
+    # end def
+
+    def metricsGetQueries(self, start = None, until: datetime = None,
+                          offset: int = 0, length: int = 100, 
+                          dbid: int = 0,
+                          domain: str = '',
+                          client_ip: str = '',
+                          client_name: str = '',
+                          upstream: str = '',
+                          type: str = '',
+                          status: str = '',
+                          reply: str = '',
+                          dnssec: str = '',
+                          fromdisk: bool = False):
+        """
+        Purpose: Get queries
+        Request query details. Query parameters may be used to limit the number of results.
+        By default, this API callback returns the most recent 100 queries. This can be changed using the parameter length.
+        This callback allows for fine-grained filtering by various parameters. All query parameters are all optional and can be combined in any way:
+        Only show queries from a given timestamp on: Use parameter start
+        Only show queries until a given timestamp: Use parameter until
+        Only show queries sent to a specific upstream destination (may also be cache or blocklist): Use parameter upstream
+        Only show queries for specific domains: Use parameter domain
+        Only show queries for specific clients: Use parameter client
+        By default, the returned queries always start at the most recent query.
+        This can be changed by supplying the parameter cursor.
+        Each result of this API callback contains a cursor pointing the beginning of the next n queries chunk.
+        This provides a very fast and lightweight server-side pagination implementation.
+        If wildcards are supported for a parameter, you may specify * at any position in the parameter to match any number of characters.
+        """
+        result = self._parse_datetime_range(start, until)
+        queryarg = '?from=' + str(result[0].timestamp()) + '&until=' + str(result[1].timestamp())
+        queryarg += '&start=' + str(offset) + 'length=' + str(length)
+        if (dbid):
+            queryarg += '&cursor=' + str(dbid)
+        if (domain):
+            queryarg += '&domain=' + domain
+        if (client_ip):
+            queryarg += '&client_ip=' + client_ip
+        if (client_name):
+            queryarg += '&client_name=' + client_name
+        if (upstream):
+            queryarg += '&upstream=' + upstream
+        if (type):
+            queryarg += '&type=' + type
+        if (status):
+            queryarg += '&status=' + status
+        if (reply):
+            queryarg += '&reply=' + reply
+        if (dnssec):
+            queryarg += '&dnssec=' + dnssec
+        if (fromdisk):
+            queryarg += '&disk=true'
+        return (self.api_call(method='GET', endpoint='queries' + queryarg))
+    # end def
+
+
 
 
     #############################################################################
@@ -340,7 +440,7 @@ class PiHole6(object):
             except Exception:
                 if date_from in self.known_time_ranges and date_to is None:
                     start, until = self.known_time_ranges[date_from]
-        elif isinstance(date_from, dt.datetime):
+        elif isinstance(date_from, datetime):
             start = date_from
 
         if isinstance(date_to, str):
@@ -348,7 +448,7 @@ class PiHole6(object):
                 until = date_parser.isoparse(date_to)
             except Exception:
                 pass
-        elif isinstance(date_from, dt.datetime):
+        elif isinstance(date_from, datetime):
             until = date_to
 
         if start is not None:
@@ -369,7 +469,7 @@ class PiHole6(object):
 
         if return_type == 'array_dict':
             data = [{
-                'datetime': dt.datetime.fromtimestamp(item[0]),
+                'datetime': datetime.fromtimestamp(item[0]),
                 'type': item[1],
                 'requested_domain': item[2],
                 'client': item[3],
