@@ -538,17 +538,54 @@ class PiHole6(object):
 
     # Refreshes statistics
     def refresh(self):
-        if self.session:
-            self.top_devices = self.metricsGetTopClients(count=25, blocked=False)['clients']
-            self.forward_destinations = self.metricsGetUpstreams()['upstreams']
-            self.query_types = self.metricsGetQueryTypes()['types']
+
+        # returns array of top clients
+        # [{
+        #     ip: string: Client IP address (can be either IPv4 or IPv6)
+        #     name: string: Client hostname (if available)
+        #     count: integer: Number of queries this client has made
+        # }] 
+        self.top_devices = self.metricsGetTopClients(count=25, blocked=False)['clients']
+
+        # return upstream name server stats
+        # [{
+        #     ip: string┃null: Upstream destination's IP address (can be either IPv4 or IPv6)
+        #     name: string┃null: Upstream destination's hostname (if available)
+        #     port: integer: Upstream destination's destination port (-1 if not applicable, e.g., for the local cache)
+        #     count: integer: Number of queries this upstream destination has been used for
+        #     statistics: {
+        #         response: number: Average response time of this upstream destination in seconds (0 if not applicable)
+        #         variance: number: Standard deviation of the average response time (0 if not applicable)
+        #     }
+        # }] 
+        self.forward_destinations = self.metricsGetUpstreams()['upstreams']
+
+        # returns tuples of query type statistics
+        #  {
+        #     A: integer Type A queries
+        #     AAAA: integer Type AAAA queries
+        #     ANY: integer Type ANY queries
+        #     SRV: integer Type SRV queries
+        #     SOA: integer Type SOA queries
+        #     PTR: integer Type PTR queries
+        #     TXT: integer Type TXT queries
+        #     NAPTR: integer Type NAPTR queries
+        #     MX: integer Type MX queries
+        #     DS: integer Type DS queries
+        #     RRSIG: integer Type RRSIG queries
+        #     DNSKEY: integer Type DNSKEY queries
+        #     NS: integer Type NS queries
+        #     SVCB: integer Type SVCB queries
+        #     HTTPS: integer Type HTTPS queries
+        #     OTHER: integer Type OTHER queries
+        # } 
+        self.query_types = self.metricsGetQueryTypes()['types']
 
         self.status = self.blockingGet() # blocking status enabled / disabled
 
+        summary = self.metricsGetSummary()
         # Data that is returned is now parsed into vars
-        result = self.metricsGetSummary()
-        self.domain_count = summary[' gravity']['domains_being_blocked'] # Number of domain on your Pi-hole's gravity list
-        # TODO: needs checking
+        self.domain_count = summary[' gravity']['domains_being_blocked'] # Number of domains on your Pi-hole's gravity list
         self.queries = summary['queries']['total'] # total number of queries today
         self.blocked = summary['queries']['blocked'] # number of blocked queries today
         self.ads_percentage = summary['queries']['percent_blocked'] # Percent of blocked queries
