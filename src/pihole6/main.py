@@ -476,7 +476,7 @@ class PiHole6(object):
         return (self.api_call(method='GET', endpoint='stats/recent_blocked?count='+str(number)))
     # end def
 
-    def metricsSummary(self):
+    def metricsGetSummary(self):
         """
         Purpose: Get overview of Pi-hole activity
         Request various query, system, and FTL properties
@@ -539,22 +539,26 @@ class PiHole6(object):
     # Refreshes statistics
     def refresh(self):
         if self.session:
-            self.top_devices = self.metricsGetTopClients(25)
-            self.forward_destinations = self.metricsGetUpstreams()
+            self.top_devices = self.metricsGetTopClients(count=25, blocked=False)['clients']
+            self.forward_destinations = self.metricsGetUpstreams()['upstreams']
             self.query_types = self.metricsGetQueryTypes()['types']
 
+        self.status = self.blockingGet() # blocking status enabled / disabled
+
         # Data that is returned is now parsed into vars
-        self.status = self.blockingGet()
-        self.domain_count = rawdata["domains_being_blocked"]
-        self.queries = rawdata["dns_queries_today"]
-        self.blocked = rawdata["ads_blocked_today"]
-        self.ads_percentage = rawdata["ads_percentage_today"]
-        self.unique_domains = rawdata["unique_domains"]
-        self.forwarded = rawdata["queries_forwarded"]
-        self.cached = rawdata["queries_cached"]
-        self.total_clients = rawdata["clients_ever_seen"]
-        self.unique_clients = rawdata["unique_clients"]
-        self.total_queries = rawdata["dns_queries_all_types"]
+        result = self.metricsGetSummary()
+        self.domain_count = summary[' gravity']['domains_being_blocked'] # Number of domain on your Pi-hole's gravity list
+        # TODO: needs checking
+        self.queries = summary['queries']['total'] # total number of queries today
+        self.blocked = summary['queries']['blocked'] # number of blocked queries today
+        self.ads_percentage = summary['queries']['percent_blocked'] # Percent of blocked queries
+        self.unique_domains = summary['queries']['unique_domains'] # Number of unique domains FTL knows
+        self.forwarded = summary['queries']['forwarded'] # Number of queries that have been forwarded upstream
+        self.cached = summary['queries']['cached'] # Number of queries replied to from cache or local configuration
+        self.total_clients = summary['clients']['total'] # Total number of clients seen by FTL
+        self.unique_clients = summary['clients']['active'] # Number of active clients (seen in the last 24 hours)
+        self.total_queries = summary['queries']['total'] # Total number of queries
+        # TODO: needs implementing
         self.gravity_last_updated = rawdata["gravity_last_updated"]
 
     @requires_auth
