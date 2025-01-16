@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, './src')
 import pihole6
 
-hole = pihole6.PiHole6('192.168.1.1','http',8085,'')
+hole = pihole6.PiHole6('192.168.100.15','http',80,'')
 hole.authCheck()
 print(hole.session)
 result = hole.blockingSet(enabled = False, timer = None)
