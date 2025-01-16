@@ -2,6 +2,8 @@
 # PiHole6-api
 A python3 wrapper for the pihole6 api
 
+[The API documentation is currently available here: ](https://ftl.pi-hole.net/development-v6/docs/#overview)
+
 ## Installing
 To install the package from pip, first run:
 ```bash
